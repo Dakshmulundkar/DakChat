@@ -1055,6 +1055,23 @@ body {
   }
 }
 
+@media (max-width: 600px) {
+  .login-container {
+    max-width: 95vw;
+    padding: 1.5rem 0.5rem;
+    margin: 2rem auto;
+    border-radius: 18px;
+    box-shadow: 0 4px 16px rgba(23,37,42,0.12);
+  }
+  .logo img {
+    height: 64px !important;
+    width: 64px !important;
+  }
+  .login-header {
+    margin-bottom: 1.2rem;
+  }
+}
+
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 8px;

@@ -158,7 +158,15 @@ class DakChat {
         this.myUsername = username
         myUsername = username // Update global variable
         this.currentUserElement.textContent = username
-        this.switchToChat()
+        this.loginScreen.classList.remove("active")
+        this.chatScreen.classList.add("active")
+        this.currentChat = ""
+        this.chatHeader.style.display = "none"
+        this.chatInput.style.display = "none"
+        this.sidebar.classList.add("active")
+        const chatAreaContainer = $("chat-area-container")
+        if (chatAreaContainer) chatAreaContainer.classList.remove("active")
+        this.updateUserList()
         this.showToast(`Welcome back, ${username}!`, "success")
       } else {
         this.showError("Login failed. Please try again.")
@@ -220,13 +228,16 @@ class DakChat {
     allUsers.forEach((user) => {
       const userElement = document.createElement("div")
       userElement.className = `user ${user === this.currentChat ? "active" : ""}`
+      const isOnline = this.users.includes(user)
       userElement.innerHTML = `
         <div class="user-item-avatar">
           ${user.charAt(0).toUpperCase()}
         </div>
         <div class="user-details">
           <div class="user-name">${user}</div>
-          <div class="user-status">${this.users.includes(user) ? "Online" : "Offline"}</div>
+          <div class="user-status">
+            ${isOnline ? '<span style="color:#10b981;font-weight:600;"><i class="fas fa-circle" style="font-size:0.7em;"></i> Online</span>' : 'Offline'}
+          </div>
         </div>
       `
       userElement.addEventListener("click", () => this.openChat(user))
