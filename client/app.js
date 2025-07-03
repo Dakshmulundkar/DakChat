@@ -195,24 +195,71 @@ class DakChat {
 
   async updateUserList() {
     const search = this.searchInput.value.toLowerCase()
-    let allUsers = []
+    let onlineUsers = []
+    let recentUsers = []
     if (search.length > 0) {
       // Fetch from backend API
       try {
         const res = await fetch(`/api/users?search=${encodeURIComponent(search)}`)
-        allUsers = await res.json()
+        onlineUsers = await res.json()
+        recentUsers = []
       } catch (e) {
-        allUsers = []
+        onlineUsers = []
+        recentUsers = []
       }
     } else {
-      // Only show users from recentChats (not all users)
-      allUsers = this.recentChats.filter(u => u !== this.myUsername)
+      // Show all online users (excluding self)
+      onlineUsers = this.users.filter(u => u !== this.myUsername)
+      // Show recent chats (excluding self and not duplicating online users)
+      recentUsers = this.recentChats.filter(u => u !== this.myUsername && !onlineUsers.includes(u))
     }
-    // Remove self from the list (already filtered above, but keep for safety)
-    allUsers = allUsers.filter(u => u !== this.myUsername)
-    this.userCountElement.textContent = allUsers.length
     this.userListElement.innerHTML = ""
-    if (allUsers.length === 0) {
+    // Online Now section
+    if (onlineUsers.length > 0) {
+      const onlineHeader = document.createElement("div")
+      onlineHeader.className = "section-header"
+      onlineHeader.innerHTML = `<h4><i class='fas fa-circle' style='color:#10b981;font-size:0.8em;'></i> Online Now</h4><span class='count'>${onlineUsers.length}</span>`
+      this.userListElement.appendChild(onlineHeader)
+      onlineUsers.forEach((user) => {
+        const userElement = document.createElement("div")
+        userElement.className = `user ${user === this.currentChat ? "active" : ""}`
+        userElement.innerHTML = `
+          <div class="user-item-avatar">
+            ${user.charAt(0).toUpperCase()}
+          </div>
+          <div class="user-details">
+            <div class="user-name">${user}</div>
+            <div class="user-status"><span style='color:#10b981;font-weight:600;'><i class='fas fa-circle' style='font-size:0.7em;'></i> Online</span></div>
+          </div>
+        `
+        userElement.addEventListener("click", () => this.openChat(user))
+        this.userListElement.appendChild(userElement)
+      })
+    }
+    // Recent Chats section
+    if (recentUsers.length > 0) {
+      const recentHeader = document.createElement("div")
+      recentHeader.className = "section-header"
+      recentHeader.innerHTML = `<h4><i class='fas fa-history'></i> Recent Chats</h4><span class='count'>${recentUsers.length}</span>`
+      this.userListElement.appendChild(recentHeader)
+      recentUsers.forEach((user) => {
+        const userElement = document.createElement("div")
+        userElement.className = `user ${user === this.currentChat ? "active" : ""}`
+        userElement.innerHTML = `
+          <div class="user-item-avatar">
+            ${user.charAt(0).toUpperCase()}
+          </div>
+          <div class="user-details">
+            <div class="user-name">${user}</div>
+            <div class="user-status">Offline</div>
+          </div>
+        `
+        userElement.addEventListener("click", () => this.openChat(user))
+        this.userListElement.appendChild(userElement)
+      })
+    }
+    // If nothing to show
+    if (onlineUsers.length === 0 && recentUsers.length === 0) {
       const emptyState = document.createElement("div")
       emptyState.className = "empty-state"
       emptyState.innerHTML = `
@@ -223,26 +270,7 @@ class DakChat {
         </div>
       `
       this.userListElement.appendChild(emptyState)
-      return
     }
-    allUsers.forEach((user) => {
-      const userElement = document.createElement("div")
-      userElement.className = `user ${user === this.currentChat ? "active" : ""}`
-      const isOnline = this.users.includes(user)
-      userElement.innerHTML = `
-        <div class="user-item-avatar">
-          ${user.charAt(0).toUpperCase()}
-        </div>
-        <div class="user-details">
-          <div class="user-name">${user}</div>
-          <div class="user-status">
-            ${isOnline ? '<span style="color:#10b981;font-weight:600;"><i class="fas fa-circle" style="font-size:0.7em;"></i> Online</span>' : 'Offline'}
-          </div>
-        </div>
-      `
-      userElement.addEventListener("click", () => this.openChat(user))
-      this.userListElement.appendChild(userElement)
-    })
   }
 
   openChat(username) {

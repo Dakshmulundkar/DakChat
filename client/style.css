@@ -1053,6 +1053,20 @@ body {
     overflow-y: auto;
     flex: 1;
   }
+  .message-input {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    width: 100vw;
+    background: var(--primary-white);
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -2px 8px rgba(23,37,42,0.06);
+  }
+  .main-chat {
+    padding-bottom: 90px;
+  }
 }
 
 @media (max-width: 600px) {
