@@ -583,7 +583,7 @@ body {
 
 .user:hover {
   background: var(--gradient-secondary);
-  border-color: var(--accent-red);
+  border-color: var(--accent);
   transform: translateX(4px);
 }
 
@@ -1144,7 +1144,7 @@ body {
 /* Focus States */
 button:focus,
 input:focus {
-  outline: 2px solid var(--accent-red);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -1162,7 +1162,7 @@ input:focus {
   width: 20px;
   height: 20px;
   margin: -10px 0 0 -10px;
-  border: 2px solid var(--accent-red);
+  border: 2px solid var(--accent);
   border-top: 2px solid transparent;
   border-radius: 50%;
   animation: spin 1s linear infinite;
