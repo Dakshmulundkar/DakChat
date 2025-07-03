@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DakChat - Professional Messaging</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login" class="screen">
+    <div class="login-container">
+      <div class="login-header">
+        <div class="logo">
+          <i class="fas fa-robot"></i>
+          <h1>DakChat</h1>
+        </div>
+        <p class="tagline">Advanced Communication Protocol</p>
+      </div>
+      
+      <div class="login-form">
+        <h2>System Access</h2>
+        <p class="form-subtitle">Enter your credentials to connect</p>
+        
+        <div class="input-group">
+          <i class="fas fa-user"></i>
+          <input type="text" id="username" placeholder="Username" autocomplete="username" />
+        </div>
+        
+        <div class="input-group">
+          <i class="fas fa-lock"></i>
+          <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
+        </div>
+        
+        <button class="btn-primary" onclick="setUsername()">
+          <span>Initialize Connection</span>
+          <i class="fas fa-arrow-right"></i>
+        </button>
+        
+        <div id="login-error" class="error-message"></div>
+        
+        <div class="form-footer">
+          <p>New operators will be automatically registered</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="login-background">
+      <div class="bg-grid"></div>
+      <div class="bg-particles"></div>
+    </div>
+  </div>
+
+  <!-- Main Chat Interface -->
+  <div id="main-chat" class="screen">
+    <div class="chat-container">
+      <!-- Sidebar -->
+      <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+          <div class="user-profile">
+            <div class="user-avatar">
+              <i class="fas fa-user-astronaut"></i>
+            </div>
+            <div class="user-info">
+              <h3 id="current-user">Operator</h3>
+              <span class="status-indicator">
+                <i class="fas fa-circle"></i>
+                Online
+              </span>
+            </div>
+          </div>
+          
+          <button id="logout-btn" class="btn-icon" onclick="logout()" title="Disconnect">
+            <i class="fas fa-power-off"></i>
+          </button>
+        </div>
+        
+        <div class="search-section">
+          <div class="search-container">
+            <i class="fas fa-search"></i>
+            <input id="search" type="text" placeholder="Search operators..." oninput="renderUserList()" />
+          </div>
+        </div>
+        
+        <div class="sidebar-content">
+          <div class="section-header">
+            <h4><i class="fas fa-users"></i> Active Operators</h4>
+            <span id="user-count" class="count">0</span>
+          </div>
+          
+          <div id="user-list" class="user-list">
+            <!-- Users will be populated here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Chat Area -->
+      <div id="chat-area-container" class="main-chat">
+        <div id="chat-header" class="chat-header">
+          <button id="back-arrow" class="btn-icon mobile-only" onclick="closeChat()">
+            <i class="fas fa-arrow-left"></i>
+          </button>
+          
+          <div class="chat-info">
+            <div class="chat-avatar">
+              <i class="fas fa-user-astronaut"></i>
+            </div>
+            <div class="chat-details">
+              <h3 id="chat-username">Select Operator</h3>
+              <span class="chat-status">Ready for communication</span>
+            </div>
+          </div>
+          
+          <div class="chat-actions">
+            <button class="btn-icon" title="Search messages">
+              <i class="fas fa-search"></i>
+            </button>
+            <button class="btn-icon" title="More options">
+              <i class="fas fa-ellipsis-v"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div id="chat-area" class="messages-container">
+          <div class="welcome-screen">
+            <div class="welcome-icon">
+              <i class="fas fa-satellite-dish"></i>
+            </div>
+            <h3>Communication Hub Ready</h3>
+            <p>Select an operator from the sidebar to establish secure communication</p>
+          </div>
+        </div>
+        
+        <div id="chat-input" class="message-input">
+          <div class="input-container">
+            <button class="btn-icon" title="Attach file">
+              <i class="fas fa-paperclip"></i>
+            </button>
+            
+            <button id="emoji-btn" class="btn-icon" onclick="toggleEmojiPicker()" title="Emojis">
+              <i class="fas fa-smile"></i>
+            </button>
+            
+            <div class="text-input-wrapper">
+              <input type="text" id="message" placeholder="Enter secure message..." maxlength="500" />
+              <div class="char-counter">
+                <span id="char-count">0</span>/500
+              </div>
+            </div>
+            
+            <button id="send-btn" class="btn-send" onclick="sendMessage()" title="Transmit">
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+          
+          <div id="emoji-picker" class="emoji-picker">
+            <!-- Emojis will be populated here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
