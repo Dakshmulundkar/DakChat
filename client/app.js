@@ -83,6 +83,16 @@ class DakChat {
         this.emojiPicker.style.display = "none"
       }
     })
+
+    // Add back button event for mobile
+    this.backArrow.addEventListener("click", () => {
+      if (window.innerWidth <= 768) {
+        const chatAreaContainer = $("chat-area-container")
+        if (chatAreaContainer) chatAreaContainer.classList.remove("active")
+        this.sidebar.classList.add("active")
+        this.sidebar.style.display = "flex"
+      }
+    })
   }
 
   setupSocketListeners() {
@@ -187,10 +197,10 @@ class DakChat {
         allUsers = []
       }
     } else {
-      // Show all online users and recent chats
-      allUsers = Array.from(new Set([...this.users, ...this.recentChats]))
+      // Only show users from recentChats (not all users)
+      allUsers = this.recentChats.filter(u => u !== this.myUsername)
     }
-    // Remove self from the list
+    // Remove self from the list (already filtered above, but keep for safety)
     allUsers = allUsers.filter(u => u !== this.myUsername)
     this.userCountElement.textContent = allUsers.length
     this.userListElement.innerHTML = ""
@@ -233,20 +243,11 @@ class DakChat {
     this.chatHeader.style.display = "flex"
     this.chatInput.style.display = "block"
 
-    // Add to recent chats
-    if (!this.recentChats.includes(username)) {
-      this.recentChats.unshift(username)
-      if (this.recentChats.length > 30) {
-        this.recentChats = this.recentChats.slice(0, 30)
-      }
-      localStorage.setItem("recentChats", JSON.stringify(this.recentChats))
-      recentChats = this.recentChats // Update global variable
-    }
-
-    // Mobile: show chat area
+    // Mobile: show chat area, hide sidebar
     if (window.innerWidth <= 768) {
       const chatAreaContainer = $("chat-area-container")
       if (chatAreaContainer) chatAreaContainer.classList.add("active")
+      this.sidebar.classList.remove("active")
       this.sidebar.style.display = "none"
     }
 
@@ -352,6 +353,16 @@ class DakChat {
       message: message,
     })
 
+    // Add to recent chats only after sending a message
+    if (!this.recentChats.includes(this.currentChat)) {
+      this.recentChats.unshift(this.currentChat)
+      if (this.recentChats.length > 30) {
+        this.recentChats = this.recentChats.slice(0, 30)
+      }
+      localStorage.setItem("recentChats", JSON.stringify(this.recentChats))
+      recentChats = this.recentChats // Update global variable
+    }
+
     this.messageInput.value = ""
     this.updateCharCount()
     this.messageInput.focus()
@@ -388,10 +399,8 @@ class DakChat {
       return
     }
 
-    if (picker.innerHTML === "") {
-      this.populateEmojiPicker()
-    }
-
+    // Always repopulate emoji picker to ensure emojis are present
+    this.populateEmojiPicker()
     picker.style.display = "block"
   }
 
