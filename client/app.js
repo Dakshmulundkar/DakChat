@@ -15,6 +15,8 @@ class DakChat {
     this.users = []
     this.recentChats = JSON.parse(localStorage.getItem("recentChats") || "[]")
     this.isTyping = false
+    this.userUpdateInterval = null
+    this.userConversations = {}
 
     this.initializeElements()
     this.bindEvents()
@@ -93,12 +95,19 @@ class DakChat {
         this.sidebar.style.display = "flex"
       }
     })
+
+    // Search input event
+    this.searchInput.addEventListener("input", () => {
+      this.updateUserList()
+    })
   }
 
   setupSocketListeners() {
     this.socket.on("connect", () => {
       this.hideLoadingScreen()
       this.showToast("Connected to server", "success")
+      // Request initial user list
+      this.socket.emit("request-user-list")
     })
 
     this.socket.on("disconnect", () => {
@@ -113,8 +122,32 @@ class DakChat {
     })
 
     this.socket.on("user-list", (userList) => {
-      this.users = userList.filter((u) => u !== this.myUsername)
+      const previousUsers = this.users.length
+      
+      // Handle new format with online status
+      if (Array.isArray(userList) && userList.length > 0 && typeof userList[0] === 'object') {
+        // New format: [{ username: "user", online: true/false }]
+        this.users = userList
+          .filter((user) => user.username !== this.myUsername)
+          .map(user => user.username)
+        
+        // Show notification for new online users
+        const newOnlineUsers = userList.filter(user => 
+          user.online && 
+          user.username !== this.myUsername && 
+          !this.previousUsers?.includes(user.username)
+        )
+        
+        if (newOnlineUsers.length > 0 && previousUsers > 0) {
+          this.showToast(`${newOnlineUsers.length} new operator(s) online`, "success")
+        }
+      } else {
+        // Fallback to old format: array of strings
+        this.users = userList.filter((u) => u !== this.myUsername)
+      }
+      
       this.updateUserList()
+      this.previousUsers = [...this.users]
     })
 
     this.socket.on("receive-message", (message) => {
@@ -138,7 +171,7 @@ class DakChat {
     this.loginScreen.classList.add("active")
   }
 
-  handleLogin() {
+  async handleLogin() {
     const username = this.usernameInput.value.trim()
     const password = this.passwordInput.value.trim()
 
@@ -149,7 +182,7 @@ class DakChat {
 
     this.showLoading()
 
-    this.socket.emit("set-username", { name: username, password }, (result) => {
+    this.socket.emit("set-username", { name: username, password }, async (result) => {
       this.hideLoading()
 
       if (result === "wrong") {
@@ -166,7 +199,11 @@ class DakChat {
         this.sidebar.classList.add("active")
         const chatAreaContainer = $("chat-area-container")
         if (chatAreaContainer) chatAreaContainer.classList.remove("active")
+        
+        // Fetch all chats for the user
+        await this.fetchAllUserChats()
         this.updateUserList()
+        this.startUserUpdates()
         this.showToast(`Welcome back, ${username}!`, "success")
       } else {
         this.showError("Login failed. Please try again.")
@@ -195,82 +232,144 @@ class DakChat {
 
   async updateUserList() {
     const search = this.searchInput.value.toLowerCase()
-    let onlineUsers = []
-    let recentUsers = []
-    if (search.length > 0) {
-      // Fetch from backend API
-      try {
-        const res = await fetch(`/api/users?search=${encodeURIComponent(search)}`)
-        onlineUsers = await res.json()
-        recentUsers = []
-      } catch (e) {
-        onlineUsers = []
-        recentUsers = []
+    
+    try {
+      // Fetch online users based on search
+      let searchUrl = '/api/users?currentUser=' + encodeURIComponent(this.myUsername)
+      if (search.length > 0) {
+        searchUrl += `&search=${encodeURIComponent(search)}`
       }
-    } else {
-      // Show all online users (excluding self)
-      onlineUsers = this.users.filter(u => u !== this.myUsername)
-      // Show recent chats (excluding self and not duplicating online users)
-      recentUsers = this.recentChats.filter(u => u !== this.myUsername && !onlineUsers.includes(u))
+      
+      const response = await fetch(searchUrl)
+      const onlineUsers = await response.json()
+      
+      // Filter out current user from online users
+      const filteredOnlineUsers = onlineUsers.filter(user => user !== this.myUsername)
+      
+      // Get recent chat partners from stored conversations
+      const recentChatPartners = Object.keys(this.userConversations || {}).filter(user => 
+        user !== this.myUsername && !filteredOnlineUsers.includes(user)
+      )
+      
+      this.userListElement.innerHTML = ""
+      this.userCountElement.textContent = filteredOnlineUsers.length + recentChatPartners.length
+
+      // Display online users first
+      if (filteredOnlineUsers.length > 0) {
+        const onlineHeader = document.createElement("div")
+        onlineHeader.className = "section-header"
+        onlineHeader.innerHTML = `<h4><i class="fas fa-circle" style="color: var(--success-green); font-size: 0.8em;"></i> Online Now</h4><span class="count">${filteredOnlineUsers.length}</span>`
+        this.userListElement.appendChild(onlineHeader)
+        
+        filteredOnlineUsers.forEach((user) => {
+          const userElement = document.createElement("div")
+          userElement.className = `user ${user === this.currentChat ? "active" : ""}`
+          userElement.innerHTML = `
+            <div class="user-item-avatar">
+              ${user.charAt(0).toUpperCase()}
+            </div>
+            <div class="user-details">
+              <div class="user-name">${user}</div>
+              <div class="user-status">
+                <i class="fas fa-circle" style="color: var(--success-green); font-size: 0.6rem;"></i>
+                Online
+              </div>
+            </div>
+          `
+          userElement.addEventListener("click", () => this.openChat(user))
+          this.userListElement.appendChild(userElement)
+        })
+      }
+
+      // Display recent chats
+      if (recentChatPartners.length > 0) {
+        const recentHeader = document.createElement("div")
+        recentHeader.className = "section-header"
+        recentHeader.innerHTML = `<h4><i class="fas fa-history"></i> Recent Chats</h4><span class="count">${recentChatPartners.length}</span>`
+        this.userListElement.appendChild(recentHeader)
+        
+        recentChatPartners.forEach((user) => {
+          const conversation = this.userConversations[user]
+          const lastMessage = conversation && conversation.length > 0 ? conversation[conversation.length - 1] : null
+          
+          const userElement = document.createElement("div")
+          userElement.className = `user ${user === this.currentChat ? "active" : ""}`
+          userElement.innerHTML = `
+            <div class="user-item-avatar">
+              ${user.charAt(0).toUpperCase()}
+            </div>
+            <div class="user-details">
+              <div class="user-name">${user}</div>
+              <div class="user-status">
+                <i class="fas fa-circle" style="color: var(--text-muted); font-size: 0.6rem;"></i>
+                ${lastMessage ? lastMessage.message.substring(0, 30) + (lastMessage.message.length > 30 ? '...' : '') : 'No recent messages'}
+              </div>
+            </div>
+          `
+          userElement.addEventListener("click", () => this.openChat(user))
+          this.userListElement.appendChild(userElement)
+        })
+      }
+
+      // If no users to show
+      if (filteredOnlineUsers.length === 0 && recentChatPartners.length === 0) {
+        const emptyState = document.createElement("div")
+        emptyState.className = "empty-state"
+        emptyState.innerHTML = `
+          <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+            <p>${search.length > 0 ? 'No operators found' : 'No operators available'}</p>
+          </div>
+        `
+        this.userListElement.appendChild(emptyState)
+      }
+      
+    } catch (error) {
+      console.error('Error fetching online users:', error)
+      this.displayOnlineUsersOnly()
     }
+  }
+
+  displayOnlineUsersOnly() {
+    const search = this.searchInput.value.toLowerCase()
+    let filteredUsers = this.users.filter(user => 
+      (search.length === 0 || user.toLowerCase().includes(search)) && user !== this.myUsername
+    )
+
     this.userListElement.innerHTML = ""
-    // Online Now section
-    if (onlineUsers.length > 0) {
-      const onlineHeader = document.createElement("div")
-      onlineHeader.className = "section-header"
-      onlineHeader.innerHTML = `<h4><i class='fas fa-circle' style='color:#10b981;font-size:0.8em;'></i> Online Now</h4><span class='count'>${onlineUsers.length}</span>`
-      this.userListElement.appendChild(onlineHeader)
-      onlineUsers.forEach((user) => {
-        const userElement = document.createElement("div")
-        userElement.className = `user ${user === this.currentChat ? "active" : ""}`
-        userElement.innerHTML = `
-          <div class="user-item-avatar">
-            ${user.charAt(0).toUpperCase()}
-          </div>
-          <div class="user-details">
-            <div class="user-name">${user}</div>
-            <div class="user-status"><span style='color:#10b981;font-weight:600;'><i class='fas fa-circle' style='font-size:0.7em;'></i> Online</span></div>
-          </div>
-        `
-        userElement.addEventListener("click", () => this.openChat(user))
-        this.userListElement.appendChild(userElement)
-      })
-    }
-    // Recent Chats section
-    if (recentUsers.length > 0) {
-      const recentHeader = document.createElement("div")
-      recentHeader.className = "section-header"
-      recentHeader.innerHTML = `<h4><i class='fas fa-history'></i> Recent Chats</h4><span class='count'>${recentUsers.length}</span>`
-      this.userListElement.appendChild(recentHeader)
-      recentUsers.forEach((user) => {
-        const userElement = document.createElement("div")
-        userElement.className = `user ${user === this.currentChat ? "active" : ""}`
-        userElement.innerHTML = `
-          <div class="user-item-avatar">
-            ${user.charAt(0).toUpperCase()}
-          </div>
-          <div class="user-details">
-            <div class="user-name">${user}</div>
-            <div class="user-status">Offline</div>
-          </div>
-        `
-        userElement.addEventListener("click", () => this.openChat(user))
-        this.userListElement.appendChild(userElement)
-      })
-    }
-    // If nothing to show
-    if (onlineUsers.length === 0 && recentUsers.length === 0) {
+    this.userCountElement.textContent = filteredUsers.length
+
+    if (filteredUsers.length === 0) {
       const emptyState = document.createElement("div")
       emptyState.className = "empty-state"
       emptyState.innerHTML = `
         <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
           <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-          <p>No operators found</p>
-          <p style="font-size: 0.8rem; margin-top: 0.5rem;">Try searching for available operators</p>
+          <p>${search.length > 0 ? 'No operators found' : 'No operators online'}</p>
         </div>
       `
       this.userListElement.appendChild(emptyState)
+      return
     }
+
+    filteredUsers.forEach((user) => {
+      const userElement = document.createElement("div")
+      userElement.className = `user ${user === this.currentChat ? "active" : ""}`
+      userElement.innerHTML = `
+        <div class="user-item-avatar">
+          ${user.charAt(0).toUpperCase()}
+        </div>
+        <div class="user-details">
+          <div class="user-name">${user}</div>
+          <div class="user-status">
+            <i class="fas fa-circle" style="color: var(--success-green); font-size: 0.6rem;"></i>
+            Online
+          </div>
+        </div>
+      `
+      userElement.addEventListener("click", () => this.openChat(user))
+      this.userListElement.appendChild(userElement)
+    })
   }
 
   openChat(username) {
@@ -299,18 +398,35 @@ class DakChat {
   loadChatHistory(username) {
     this.chatArea.innerHTML = ""
 
-    this.socket.emit("get-history", { withUser: username }, (history) => {
-      if (history.length === 0) {
+    // Check if we have pre-loaded conversations
+    if (this.userConversations && this.userConversations[username]) {
+      const conversation = this.userConversations[username]
+      
+      if (conversation.length === 0) {
         this.showWelcomeMessage(username)
         return
       }
 
-      history.forEach((msg) => {
+      conversation.forEach((msg) => {
         this.displayMessage(msg.message, msg.from, msg.time)
       })
 
       this.scrollToBottom()
-    })
+    } else {
+      // Fallback to socket request if conversation not loaded
+      this.socket.emit("get-history", { withUser: username }, (history) => {
+        if (history.length === 0) {
+          this.showWelcomeMessage(username)
+          return
+        }
+
+        history.forEach((msg) => {
+          this.displayMessage(msg.message, msg.from, msg.time)
+        })
+
+        this.scrollToBottom()
+      })
+    }
   }
 
   showWelcomeMessage(username) {
@@ -331,16 +447,21 @@ class DakChat {
       this.displayMessage(message.message, message.from, message.time)
     }
 
-    // Add to recent chats
-    if (message.from !== this.myUsername && !this.recentChats.includes(message.from)) {
-      this.recentChats.unshift(message.from)
-      if (this.recentChats.length > 30) {
-        this.recentChats = this.recentChats.slice(0, 30)
-      }
-      localStorage.setItem("recentChats", JSON.stringify(this.recentChats))
-      recentChats = this.recentChats // Update global variable
-      this.updateUserList()
+    // Update stored conversations
+    const partner = message.from === this.myUsername ? message.to : message.from
+    if (!this.userConversations[partner]) {
+      this.userConversations[partner] = []
     }
+    this.userConversations[partner].push({
+      id: Date.now(), // Temporary ID
+      from: message.from,
+      to: message.to,
+      message: message.message,
+      time: message.time
+    })
+
+    // Refresh user list to show updated recent chats from MongoDB
+    this.updateUserList()
 
     // Show notification if not current chat
     if (message.from !== this.currentChat && message.from !== this.myUsername) {
@@ -392,19 +513,12 @@ class DakChat {
       message: message,
     })
 
-    // Add to recent chats only after sending a message
-    if (!this.recentChats.includes(this.currentChat)) {
-      this.recentChats.unshift(this.currentChat)
-      if (this.recentChats.length > 30) {
-        this.recentChats = this.recentChats.slice(0, 30)
-      }
-      localStorage.setItem("recentChats", JSON.stringify(this.recentChats))
-      recentChats = this.recentChats // Update global variable
-    }
-
     this.messageInput.value = ""
     this.updateCharCount()
     this.messageInput.focus()
+    
+    // Refresh user list to show updated recent chats
+    setTimeout(() => this.updateUserList(), 500)
   }
 
   updateCharCount() {
@@ -653,7 +767,55 @@ class DakChat {
     this.updateUserList()
   }
 
+  startUserUpdates() {
+    // Clear any existing interval
+    if (this.userUpdateInterval) {
+      clearInterval(this.userUpdateInterval)
+    }
+    
+    // Request user list every 3 seconds
+    this.userUpdateInterval = setInterval(() => {
+      if (this.socket.connected) {
+        this.socket.emit("request-user-list")
+      }
+    }, 3000)
+  }
+
+  async fetchUsersFromDatabase() {
+    try {
+      const response = await fetch(`/api/users?currentUser=${encodeURIComponent(this.myUsername)}`)
+      const users = await response.json()
+      return users
+    } catch (error) {
+      console.error('Error fetching users from database:', error)
+      return []
+    }
+  }
+
+  async fetchAllUserChats() {
+    try {
+      const response = await fetch(`/api/user-chats/${this.myUsername}`)
+      const conversations = await response.json()
+      
+      // Store conversations in memory for quick access
+      this.userConversations = conversations
+      
+      console.log(`📚 Loaded ${Object.keys(conversations).length} conversations for ${this.myUsername}`)
+    } catch (error) {
+      console.error('Error fetching user chats:', error)
+      this.userConversations = {}
+    }
+  }
+
+  stopUserUpdates() {
+    if (this.userUpdateInterval) {
+      clearInterval(this.userUpdateInterval)
+      this.userUpdateInterval = null
+    }
+  }
+
   logout() {
+    this.stopUserUpdates()
     this.socket.emit("logout")
     this.myUsername = ""
     myUsername = "" // Update global variable

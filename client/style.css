@@ -500,7 +500,7 @@ body {
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--accent-red);
+  color: var(--accent);
   font-size: 0.9rem;
 }
 
@@ -517,8 +517,8 @@ body {
 
 .search-container input:focus {
   outline: none;
-  border-color: var(--accent-red);
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(58, 175, 169, 0.1);
 }
 
 .search-container input::placeholder {

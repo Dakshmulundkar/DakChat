@@ -54,6 +54,27 @@ io.on("connection", (socket) => {
   let username = ""
   console.log("🔌 New client connected:", socket.id)
 
+  // Function to emit user list to all clients
+  const emitUserList = async () => {
+    try {
+      // Only emit online users
+      const onlineUsers = Object.keys(users)
+      const userList = onlineUsers.map(username => ({
+        username: username,
+        online: true
+      }))
+      
+      io.emit("user-list", userList)
+      console.log("📊 Online users:", onlineUsers.length)
+    } catch (error) {
+      console.error("❌ Error emitting user list:", error)
+      io.emit("user-list", [])
+    }
+  }
+
+  // Emit user list every 5 seconds to keep clients updated
+  const userListInterval = setInterval(emitUserList, 5000)
+
   socket.on("set-username", async (data, cb) => {
     try {
       const { name, password } = data
@@ -72,14 +93,14 @@ io.on("connection", (socket) => {
         username = name
         console.log("👤 New user registered:", name)
         cb(true)
-        io.emit("user-list", Object.keys(users))
+        await emitUserList()
       } else if (user.password === password) {
         // Login existing user
         users[name] = { socketId: socket.id }
         username = name
         console.log("🔐 User logged in:", name)
         cb(true)
-        io.emit("user-list", Object.keys(users))
+        await emitUserList()
       } else {
         console.log("❌ Wrong password for user:", name)
         cb("wrong")
@@ -120,21 +141,27 @@ io.on("connection", (socket) => {
     }
   })
 
-  socket.on("logout", () => {
+  socket.on("logout", async () => {
     if (username) {
       console.log("👋 User logged out:", username)
       delete users[username]
       username = ""
-      io.emit("user-list", Object.keys(users))
+      await emitUserList()
     }
   })
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     if (username && users[username]) {
       console.log("🔌 User disconnected:", username)
       delete users[username]
-      io.emit("user-list", Object.keys(users))
+      await emitUserList()
     }
+    // Clear the interval when socket disconnects
+    clearInterval(userListInterval)
+  })
+
+  socket.on("request-user-list", async () => {
+    await emitUserList()
   })
 
   socket.on("get-history", async ({ withUser }, cb) => {
@@ -165,13 +192,121 @@ io.on("connection", (socket) => {
 app.get("/api/users", async (req, res) => {
   try {
     const search = req.query.search || ""
-    // Find users whose username contains the search string (case-insensitive)
-    const users = await User.find({
-      username: { $regex: search, $options: "i" }
-    }).select("username -_id")
-    res.json(users.map(u => u.username))
+    const currentUser = req.query.currentUser || ""
+    const onlineUsers = Object.keys(users)
+    
+    if (search.length > 0) {
+      // Search in MongoDB for users matching the search term
+      const dbUsers = await User.find({
+        username: { $regex: search, $options: "i" }
+      }).select("username -_id")
+      
+      // Filter to only include online users from search results, excluding current user
+      const onlineSearchResults = dbUsers
+        .map(u => u.username)
+        .filter(username => onlineUsers.includes(username) && username !== currentUser)
+      
+      res.json(onlineSearchResults)
+    } else {
+      // If no search term, return all online users except current user
+      const filteredUsers = onlineUsers.filter(username => username !== currentUser)
+      res.json(filteredUsers)
+    }
   } catch (error) {
+    console.error("Error searching users:", error)
     res.status(500).json({ error: "Failed to search users" })
+  }
+})
+
+// Add recent chats endpoint
+app.get("/api/recent-chats/:username", async (req, res) => {
+  try {
+    const username = req.params.username
+    if (!username) {
+      return res.status(400).json({ error: "Username required" })
+    }
+
+    // Get recent chat partners for the user
+    const recentChats = await Message.aggregate([
+      {
+        $match: {
+          $or: [
+            { from: username },
+            { to: username }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $eq: ["$from", username] },
+              "$to",
+              "$from"
+            ]
+          },
+          lastMessage: { $last: "$$ROOT" }
+        }
+      },
+      {
+        $sort: { "lastMessage.time": -1 }
+      },
+      {
+        $limit: 20
+      }
+    ])
+
+    const chatPartners = recentChats.map(chat => ({
+      username: chat._id,
+      lastMessage: chat.lastMessage.message,
+      lastMessageTime: chat.lastMessage.time,
+      unreadCount: 0 // You can implement unread count logic later
+    }))
+
+    res.json(chatPartners)
+  } catch (error) {
+    console.error("Error fetching recent chats:", error)
+    res.status(500).json({ error: "Failed to fetch recent chats" })
+  }
+})
+
+// Add endpoint to fetch all chats for a user
+app.get("/api/user-chats/:username", async (req, res) => {
+  try {
+    const username = req.params.username
+    if (!username) {
+      return res.status(400).json({ error: "Username required" })
+    }
+
+    // Get all messages for the user (both sent and received)
+    const allMessages = await Message.find({
+      $or: [
+        { from: username },
+        { to: username }
+      ]
+    }).sort({ time: 1 })
+
+    // Group messages by conversation partner
+    const conversations = {}
+    
+    allMessages.forEach(message => {
+      const partner = message.from === username ? message.to : message.from
+      if (!conversations[partner]) {
+        conversations[partner] = []
+      }
+      conversations[partner].push({
+        id: message._id,
+        from: message.from,
+        to: message.to,
+        message: message.message,
+        time: message.time
+      })
+    })
+
+    res.json(conversations)
+  } catch (error) {
+    console.error("Error fetching user chats:", error)
+    res.status(500).json({ error: "Failed to fetch user chats" })
   }
 })
 
