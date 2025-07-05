@@ -234,54 +234,96 @@ class DakChat {
     const search = this.searchInput.value.toLowerCase()
     
     try {
-      // Fetch online users based on search
+      // Fetch users based on search
       let searchUrl = '/api/users?currentUser=' + encodeURIComponent(this.myUsername)
       if (search.length > 0) {
         searchUrl += `&search=${encodeURIComponent(search)}`
       }
       
       const response = await fetch(searchUrl)
-      const onlineUsers = await response.json()
+      const usersWithStatus = await response.json()
       
-      // Filter out current user from online users
-      const filteredOnlineUsers = onlineUsers.filter(user => user !== this.myUsername)
+      // Handle both old format (array of strings) and new format (array of objects)
+      let users = []
+      if (Array.isArray(usersWithStatus) && usersWithStatus.length > 0) {
+        if (typeof usersWithStatus[0] === 'string') {
+          // Old format: array of strings
+          users = usersWithStatus.map(username => ({ username, online: true }))
+        } else {
+          // New format: array of objects with { username, online }
+          users = usersWithStatus
+        }
+      }
       
-      // Get recent chat partners from stored conversations
-      const recentChatPartners = Object.keys(this.userConversations || {}).filter(user => 
-        user !== this.myUsername && !filteredOnlineUsers.includes(user)
-      )
+      // Filter out current user
+      const filteredUsers = users.filter(user => user.username !== this.myUsername)
+      
+      // Get recent chat partners from stored conversations (only if not searching)
+      const recentChatPartners = search.length === 0 ? 
+        Object.keys(this.userConversations || {}).filter(user => 
+          user !== this.myUsername && !filteredUsers.some(u => u.username === user)
+        ) : []
       
       this.userListElement.innerHTML = ""
-      this.userCountElement.textContent = filteredOnlineUsers.length + recentChatPartners.length
+      this.userCountElement.textContent = filteredUsers.length + recentChatPartners.length
 
       // Display online users first
-      if (filteredOnlineUsers.length > 0) {
+      const onlineUsers = filteredUsers.filter(user => user.online)
+      if (onlineUsers.length > 0) {
         const onlineHeader = document.createElement("div")
         onlineHeader.className = "section-header"
-        onlineHeader.innerHTML = `<h4><i class="fas fa-circle" style="color: var(--success-green); font-size: 0.8em;"></i> Online Now</h4><span class="count">${filteredOnlineUsers.length}</span>`
+        onlineHeader.innerHTML = `<h4><i class="fas fa-circle" style="color: var(--success-green); font-size: 0.8em;"></i> Online Now</h4><span class="count">${onlineUsers.length}</span>`
         this.userListElement.appendChild(onlineHeader)
         
-        filteredOnlineUsers.forEach((user) => {
+        onlineUsers.forEach((user) => {
           const userElement = document.createElement("div")
-          userElement.className = `user ${user === this.currentChat ? "active" : ""}`
+          userElement.className = `user ${user.username === this.currentChat ? "active" : ""}`
           userElement.innerHTML = `
             <div class="user-item-avatar">
-              ${user.charAt(0).toUpperCase()}
+              ${user.username.charAt(0).toUpperCase()}
             </div>
             <div class="user-details">
-              <div class="user-name">${user}</div>
+              <div class="user-name">${user.username}</div>
               <div class="user-status">
                 <i class="fas fa-circle" style="color: var(--success-green); font-size: 0.6rem;"></i>
                 Online
               </div>
             </div>
           `
-          userElement.addEventListener("click", () => this.openChat(user))
+          userElement.addEventListener("click", () => this.openChat(user.username))
           this.userListElement.appendChild(userElement)
         })
       }
 
-      // Display recent chats
+      // Display offline users (only when searching)
+      const offlineUsers = filteredUsers.filter(user => !user.online)
+      if (offlineUsers.length > 0) {
+        const offlineHeader = document.createElement("div")
+        offlineHeader.className = "section-header"
+        offlineHeader.innerHTML = `<h4><i class="fas fa-circle" style="color: var(--text-muted); font-size: 0.8em;"></i> Offline</h4><span class="count">${offlineUsers.length}</span>`
+        this.userListElement.appendChild(offlineHeader)
+        
+        offlineUsers.forEach((user) => {
+          const userElement = document.createElement("div")
+          userElement.className = `user ${user.username === this.currentChat ? "active" : ""}`
+          userElement.innerHTML = `
+            <div class="user-item-avatar">
+              ${user.username.charAt(0).toUpperCase()}
+            </div>
+            <div class="user-details">
+              <div class="user-name">${user.username}</div>
+              <div class="user-status">
+                <i class="fas fa-circle" style="color: var(--text-muted); font-size: 0.6rem;"></i>
+                Offline
+              </div>
+            </div>
+          `
+          userElement.addEventListener("click", () => this.openChat(user.username))
+          this.userListElement.appendChild(userElement)
+        })
+      }
+
+      // Display recent chats (only when not searching)
       if (recentChatPartners.length > 0) {
         const recentHeader = document.createElement("div")
         recentHeader.className = "section-header"
@@ -312,7 +354,7 @@ class DakChat {
       }
 
       // If no users to show
-      if (filteredOnlineUsers.length === 0 && recentChatPartners.length === 0) {
+      if (filteredUsers.length === 0 && recentChatPartners.length === 0) {
         const emptyState = document.createElement("div")
         emptyState.className = "empty-state"
         emptyState.innerHTML = `

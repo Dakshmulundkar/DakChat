@@ -201,16 +201,26 @@ app.get("/api/users", async (req, res) => {
         username: { $regex: search, $options: "i" }
       }).select("username -_id")
       
-      // Filter to only include online users from search results, excluding current user
-      const onlineSearchResults = dbUsers
+      // Get all matching users from database, excluding current user
+      const allMatchingUsers = dbUsers
         .map(u => u.username)
-        .filter(username => onlineUsers.includes(username) && username !== currentUser)
+        .filter(username => username !== currentUser)
       
-      res.json(onlineSearchResults)
+      // Mark which users are online
+      const usersWithStatus = allMatchingUsers.map(username => ({
+        username: username,
+        online: onlineUsers.includes(username)
+      }))
+      
+      res.json(usersWithStatus)
     } else {
       // If no search term, return all online users except current user
       const filteredUsers = onlineUsers.filter(username => username !== currentUser)
-      res.json(filteredUsers)
+      const usersWithStatus = filteredUsers.map(username => ({
+        username: username,
+        online: true
+      }))
+      res.json(usersWithStatus)
     }
   } catch (error) {
     console.error("Error searching users:", error)
