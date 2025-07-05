@@ -327,28 +327,35 @@ body {
 
 .password-toggle {
   position: absolute;
-  right: 0.75rem;
+  right: 2.7rem;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
+  background: transparent;
   border: none;
   color: #3AAFA9;
   cursor: pointer;
   font-size: 1rem;
   z-index: 2;
-  padding: 0.5rem;
-  border-radius: 6px;
+  padding: 0;
   transition: all 0.2s;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: auto;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: none;
+  outline: none;
 }
 
 .password-toggle:hover {
   color: #2B7A78;
-  background: rgba(58, 175, 169, 0.1);
+  background: transparent;
+  box-shadow: none;
+}
+
+.password-toggle:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .btn-primary {
