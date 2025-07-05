@@ -1,6 +1,5 @@
-// Handle environment variables for both local and deployment
 if (process.env.NODE_ENV !== "production") {
-  require("dotenv").config({ path: require("path").join(__dirname, ".env") })
+  require("dotenv").config({ path: require("path").join(__dirname, "../.env") })
 }
 const express = require("express")
 const app = express()
@@ -9,15 +8,13 @@ const io = require("socket.io")(http)
 const path = require("path")
 const mongoose = require("mongoose")
 
-// Use environment variable for MongoDB connection with fallback
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  process.env.DATABASE_URL ||
-  "mongodb://localhost:27017/dakchat"
+const MONGO_URI = process.env.MONGO_URI || process.env.DATABASE_URL
 
 if (!MONGO_URI) {
   console.error("❌ No MongoDB URI found in environment variables")
-  console.log("💡 Make sure MONGO_URI is set in your environment")
+  console.log("💡 Please create a .env file in the root directory with:")
+  console.log("   MONGO_URI=mongodb://localhost:27017/dakchat")
+  console.log("   Or set MONGO_URI environment variable")
   process.exit(1)
 }
 
@@ -31,22 +28,12 @@ mongoose
     process.exit(1)
   })
 
-const userSchema = new mongoose.Schema({
-  username: { type: String, unique: true },
-  password: String,
-})
-
-const messageSchema = new mongoose.Schema({
-  from: String,
-  to: String,
-  message: String,
-  time: { type: Date, default: Date.now },
-})
+const userSchema = new mongoose.Schema({ username: { type: String, unique: true }, password: String }), messageSchema = new mongoose.Schema({ from: String, to: String, message: String, time: { type: Date, default: Date.now } })
 
 const User = mongoose.model("User", userSchema)
 const Message = mongoose.model("Message", messageSchema)
 
-const users = {} // { username: { socketId } }
+const users = {}
 
 app.use(express.static(path.join(__dirname, "../client")))
 
@@ -54,25 +41,8 @@ io.on("connection", (socket) => {
   let username = ""
   console.log("🔌 New client connected:", socket.id)
 
-  // Function to emit user list to all clients
-  const emitUserList = async () => {
-    try {
-      // Only emit online users
-      const onlineUsers = Object.keys(users)
-      const userList = onlineUsers.map(username => ({
-        username: username,
-        online: true
-      }))
-      
-      io.emit("user-list", userList)
-      console.log("📊 Online users:", onlineUsers.length)
-    } catch (error) {
-      console.error("❌ Error emitting user list:", error)
-      io.emit("user-list", [])
-    }
-  }
+  const emitUserList = async () => { try { const onlineUsers = Object.keys(users), userList = onlineUsers.map(username => ({ username: username, online: true })); io.emit("user-list", userList), console.log("📊 Online users:", onlineUsers.length) } catch (error) { console.error("❌ Error emitting user list:", error), io.emit("user-list", []) } }
 
-  // Emit user list every 5 seconds to keep clients updated
   const userListInterval = setInterval(emitUserList, 5000)
 
   socket.on("set-username", async (data, cb) => {
@@ -86,7 +56,6 @@ io.on("connection", (socket) => {
       let user = await User.findOne({ username: name })
 
       if (!user) {
-        // Register new user
         user = new User({ username: name, password })
         await user.save()
         users[name] = { socketId: socket.id }
@@ -95,7 +64,6 @@ io.on("connection", (socket) => {
         cb(true)
         await emitUserList()
       } else if (user.password === password) {
-        // Login existing user
         users[name] = { socketId: socket.id }
         username = name
         console.log("🔐 User logged in:", name)
@@ -125,16 +93,13 @@ io.on("connection", (socket) => {
         time: new Date(),
       }
 
-      // Save message to database
       await new Message(msgObj).save()
       console.log("💬 Message saved:", `${username} -> ${to}`)
 
-      // Send to target user if online
       if (target && target.socketId) {
         io.to(target.socketId).emit("receive-message", msgObj)
       }
 
-      // Also send back to sender for confirmation
       socket.emit("receive-message", msgObj)
     } catch (error) {
       console.error("❌ Error sending message:", error)
@@ -156,7 +121,6 @@ io.on("connection", (socket) => {
       delete users[username]
       await emitUserList()
     }
-    // Clear the interval when socket disconnects
     clearInterval(userListInterval)
   })
 
@@ -177,7 +141,7 @@ io.on("connection", (socket) => {
         ],
       })
         .sort({ time: 1 })
-        .limit(100) // Limit to last 100 messages
+        .limit(100)
 
       console.log("📜 Chat history retrieved:", `${username} <-> ${withUser} (${history.length} messages)`)
       cb(history)
@@ -188,7 +152,6 @@ io.on("connection", (socket) => {
   })
 })
 
-// Add user search endpoint
 app.get("/api/users", async (req, res) => {
   try {
     const search = req.query.search || ""
@@ -196,31 +159,29 @@ app.get("/api/users", async (req, res) => {
     const onlineUsers = Object.keys(users)
     
     if (search.length > 0) {
-      // Search in MongoDB for users matching the search term
+      // Search all users in database (not just online ones)
       const dbUsers = await User.find({
         username: { $regex: search, $options: "i" }
       }).select("username -_id")
       
-      // Get all matching users from database, excluding current user
-      const allMatchingUsers = dbUsers
-        .map(u => u.username)
-        .filter(username => username !== currentUser)
+      // Separate online and offline users
+      const searchResults = dbUsers.map(u => u.username).filter(username => username !== currentUser)
+      const onlineSearchResults = searchResults.filter(username => onlineUsers.includes(username))
+      const offlineSearchResults = searchResults.filter(username => !onlineUsers.includes(username))
       
-      // Mark which users are online
-      const usersWithStatus = allMatchingUsers.map(username => ({
-        username: username,
-        online: onlineUsers.includes(username)
-      }))
-      
-      res.json(usersWithStatus)
+      res.json({
+        online: onlineSearchResults,
+        offline: offlineSearchResults,
+        all: searchResults
+      })
     } else {
       // If no search term, return all online users except current user
       const filteredUsers = onlineUsers.filter(username => username !== currentUser)
-      const usersWithStatus = filteredUsers.map(username => ({
-        username: username,
-        online: true
-      }))
-      res.json(usersWithStatus)
+      res.json({
+        online: filteredUsers,
+        offline: [],
+        all: filteredUsers
+      })
     }
   } catch (error) {
     console.error("Error searching users:", error)

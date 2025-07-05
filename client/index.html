@@ -9,7 +9,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-  <!-- Login Screen -->
   <div id="login" class="screen">
     <div class="login-container">
       <div class="login-header">
@@ -32,6 +31,9 @@
         <div class="input-group">
           <i class="fas fa-lock"></i>
           <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
+          <button type="button" id="toggle-password" class="password-toggle">
+            <i class="fas fa-eye"></i>
+          </button>
         </div>
         
         <button class="btn-primary" onclick="setUsername()">
@@ -53,10 +55,8 @@
     </div>
   </div>
 
-  <!-- Main Chat Interface -->
   <div id="main-chat" class="screen">
     <div class="chat-container">
-      <!-- Sidebar -->
       <div id="sidebar" class="sidebar">
         <div class="sidebar-header">
           <div class="user-profile">
@@ -90,13 +90,10 @@
             <span id="user-count" class="count">0</span>
           </div>
           
-          <div id="user-list" class="user-list">
-            <!-- Users will be populated here -->
-          </div>
+          <div id="user-list" class="user-list"></div>
         </div>
       </div>
 
-      <!-- Main Chat Area -->
       <div id="chat-area-container" class="main-chat">
         <div id="chat-header" class="chat-header">
           <button id="back-arrow" class="btn-icon mobile-only" onclick="closeChat()">
@@ -151,15 +148,12 @@
             </button>
           </div>
           
-          <div id="emoji-picker" class="emoji-picker">
-            <!-- Emojis will be populated here -->
-          </div>
+          <div id="emoji-picker" class="emoji-picker"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Toast Notifications -->
   <div id="toast-container" class="toast-container"></div>
 
   <script src="/socket.io/socket.io.js"></script>

@@ -1,4 +1,3 @@
-// Socket.IO connection
 const socket = io()
 let myUsername = ""
 let currentChat = ""
@@ -25,151 +24,20 @@ class DakChat {
   }
 
   initializeElements() {
-    // Screens
-    this.loginScreen = $("login")
-    this.chatScreen = $("main-chat")
-
-    // Login elements
-    this.usernameInput = $("username")
-    this.passwordInput = $("password")
-    this.loginError = $("login-error")
-
-    // Chat elements
-    this.sidebar = $("sidebar")
-    this.currentUserElement = $("current-user")
-    this.userCountElement = $("user-count")
-    this.userListElement = $("user-list")
-    this.searchInput = $("search")
-    this.chatHeader = $("chat-header")
-    this.chatUsername = $("chat-username")
-    this.chatArea = $("chat-area")
-    this.chatInput = $("chat-input")
-    this.messageInput = $("message")
-    this.sendBtn = $("send-btn")
-    this.emojiBtn = $("emoji-btn")
-    this.emojiPicker = $("emoji-picker")
-    this.charCount = $("char-count")
-    this.backArrow = $("back-arrow")
-    this.logoutBtn = $("logout-btn")
-
-    // Toast container
-    this.toastContainer = $("toast-container")
+    this.loginScreen = $("login"), this.chatScreen = $("main-chat"), this.usernameInput = $("username"), this.passwordInput = $("password"), this.loginError = $("login-error"), this.sidebar = $("sidebar"), this.currentUserElement = $("current-user"), this.userCountElement = $("user-count"), this.userListElement = $("user-list"), this.searchInput = $("search"), this.chatHeader = $("chat-header"), this.chatUsername = $("chat-username"), this.chatArea = $("chat-area"), this.chatInput = $("chat-input"), this.messageInput = $("message"), this.sendBtn = $("send-btn"), this.emojiBtn = $("emoji-btn"), this.emojiPicker = $("emoji-picker"), this.charCount = $("char-count"), this.backArrow = $("back-arrow"), this.logoutBtn = $("logout-btn"), this.toastContainer = $("toast-container")
   }
 
   bindEvents() {
-    // Login
-    this.usernameInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") this.handleLogin()
-    })
-
-    this.passwordInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") this.handleLogin()
-    })
-
-    // Message input
-    this.messageInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault()
-        this.sendMessage()
-      }
-    })
-
-    this.messageInput.addEventListener("input", () => {
-      this.updateCharCount()
-      this.handleTyping()
-    })
-
-    // Close emoji picker when clicking outside
-    document.addEventListener("click", (e) => {
-      if (!this.emojiPicker.contains(e.target) && e.target !== this.emojiBtn) {
-        this.emojiPicker.style.display = "none"
-      }
-    })
-
-    // Add back button event for mobile
-    this.backArrow.addEventListener("click", () => {
-      if (window.innerWidth <= 768) {
-        const chatAreaContainer = $("chat-area-container")
-        if (chatAreaContainer) chatAreaContainer.classList.remove("active")
-        this.sidebar.classList.add("active")
-        this.sidebar.style.display = "flex"
-      }
-    })
-
-    // Search input event
-    this.searchInput.addEventListener("input", () => {
-      this.updateUserList()
-    })
+    this.usernameInput.addEventListener("keypress", (e) => { if (e.key === "Enter") this.handleLogin() }), this.passwordInput.addEventListener("keypress", (e) => { if (e.key === "Enter") this.handleLogin() }), this.messageInput.addEventListener("keypress", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(), this.sendMessage() } }), this.messageInput.addEventListener("input", () => { this.updateCharCount(), this.handleTyping() }), document.addEventListener("click", (e) => { if (!this.emojiPicker.contains(e.target) && e.target !== this.emojiBtn) this.emojiPicker.style.display = "none" }), this.backArrow.addEventListener("click", () => { if (window.innerWidth <= 768) { const chatAreaContainer = $("chat-area-container"); if (chatAreaContainer) chatAreaContainer.classList.remove("active"); this.sidebar.classList.add("active"), this.sidebar.style.display = "flex" } }), this.searchInput.addEventListener("input", () => { clearTimeout(this.searchTimeout); this.searchTimeout = setTimeout(() => { this.updateUserList() }, 300) })
   }
 
   setupSocketListeners() {
-    this.socket.on("connect", () => {
-      this.hideLoadingScreen()
-      this.showToast("Connected to server", "success")
-      // Request initial user list
-      this.socket.emit("request-user-list")
-    })
-
-    this.socket.on("disconnect", () => {
-      this.showToast("Connection lost", "error")
-    })
-
-    this.socket.on("connect_error", (error) => {
-      console.error("Connection error:", error)
-      this.hideLoadingScreen()
-      this.showLoginScreen()
-      this.showToast("Failed to connect to server", "error")
-    })
-
-    this.socket.on("user-list", (userList) => {
-      const previousUsers = this.users.length
-      
-      // Handle new format with online status
-      if (Array.isArray(userList) && userList.length > 0 && typeof userList[0] === 'object') {
-        // New format: [{ username: "user", online: true/false }]
-        this.users = userList
-          .filter((user) => user.username !== this.myUsername)
-          .map(user => user.username)
-        
-        // Show notification for new online users
-        const newOnlineUsers = userList.filter(user => 
-          user.online && 
-          user.username !== this.myUsername && 
-          !this.previousUsers?.includes(user.username)
-        )
-        
-        if (newOnlineUsers.length > 0 && previousUsers > 0) {
-          this.showToast(`${newOnlineUsers.length} new operator(s) online`, "success")
-        }
-      } else {
-        // Fallback to old format: array of strings
-        this.users = userList.filter((u) => u !== this.myUsername)
-      }
-      
-      this.updateUserList()
-      this.previousUsers = [...this.users]
-    })
-
-    this.socket.on("receive-message", (message) => {
-      this.handleIncomingMessage(message)
-    })
+    this.socket.on("connect", () => { this.hideLoadingScreen(), this.showToast("Connected to server", "success"), this.socket.emit("request-user-list") }), this.socket.on("disconnect", () => { this.showToast("Connection lost", "error") }), this.socket.on("connect_error", (error) => { console.error("Connection error:", error), this.hideLoadingScreen(), this.showLoginScreen(), this.showToast("Failed to connect to server", "error") }), this.socket.on("user-list", (userList) => { const previousUsers = this.users.length; if (Array.isArray(userList) && userList.length > 0 && typeof userList[0] === 'object') { this.users = userList.filter((user) => user.username !== this.myUsername).map(user => user.username); const newOnlineUsers = userList.filter(user => user.online && user.username !== this.myUsername && !this.previousUsers?.includes(user.username)); if (newOnlineUsers.length > 0 && previousUsers > 0) this.showToast(`${newOnlineUsers.length} new operator(s) online`, "success") } else { this.users = userList.filter((u) => u !== this.myUsername) } this.updateUserList(), this.previousUsers = [...this.users] }), this.socket.on("receive-message", (message) => { this.handleIncomingMessage(message) })
   }
 
-  showLoadingScreen() {
-    if (this.loadingScreen) this.hideLoadingScreen()
-    this.showLoginScreen()
-  }
-
-  hideLoadingScreen() {
-    if (this.loadingScreen) {
-      this.loadingScreen.style.opacity = "0"
-      this.loadingScreen.style.visibility = "hidden"
-    }
-  }
-
-  showLoginScreen() {
-    this.loginScreen.classList.add("active")
-  }
+  showLoadingScreen() { if (this.loadingScreen) this.hideLoadingScreen(); this.showLoginScreen() }
+  hideLoadingScreen() { if (this.loadingScreen) { this.loadingScreen.style.opacity = "0", this.loadingScreen.style.visibility = "hidden" } }
+  showLoginScreen() { this.loginScreen.classList.add("active") }
 
   async handleLogin() {
     const username = this.usernameInput.value.trim()
@@ -211,24 +79,8 @@ class DakChat {
     })
   }
 
-  showError(message) {
-    this.loginError.textContent = message
-    this.loginError.classList.add("show")
-
-    setTimeout(() => {
-      this.loginError.classList.remove("show")
-    }, 5000)
-  }
-
-  switchToChat() {
-    this.loginScreen.classList.remove("active")
-    this.chatScreen.classList.add("active")
-
-    // Clear login form
-    this.usernameInput.value = ""
-    this.passwordInput.value = ""
-    this.loginError.classList.remove("show")
-  }
+  showError(message) { this.loginError.textContent = message, this.loginError.classList.add("show"), setTimeout(() => { this.loginError.classList.remove("show") }, 5000) }
+  switchToChat() { this.loginScreen.classList.remove("active"), this.chatScreen.classList.add("active"), this.usernameInput.value = "", this.passwordInput.value = "", this.loginError.classList.remove("show") }
 
   async updateUserList() {
     const search = this.searchInput.value.toLowerCase()
@@ -241,34 +93,28 @@ class DakChat {
       }
       
       const response = await fetch(searchUrl)
-      const usersWithStatus = await response.json()
+      const userData = await response.json()
       
-      // Handle both old format (array of strings) and new format (array of objects)
-      let users = []
-      if (Array.isArray(usersWithStatus) && usersWithStatus.length > 0) {
-        if (typeof usersWithStatus[0] === 'string') {
-          // Old format: array of strings
-          users = usersWithStatus.map(username => ({ username, online: true }))
-        } else {
-          // New format: array of objects with { username, online }
-          users = usersWithStatus
-        }
+      // Handle both old format (array) and new format (object)
+      let onlineUsers = [], offlineUsers = []
+      if (Array.isArray(userData)) {
+        // Old format - only online users
+        onlineUsers = userData.filter(user => user !== this.myUsername)
+      } else {
+        // New format - online and offline users
+        onlineUsers = userData.online || []
+        offlineUsers = userData.offline || []
       }
       
-      // Filter out current user
-      const filteredUsers = users.filter(user => user.username !== this.myUsername)
-      
       // Get recent chat partners from stored conversations (only if not searching)
-      const recentChatPartners = search.length === 0 ? 
-        Object.keys(this.userConversations || {}).filter(user => 
-          user !== this.myUsername && !filteredUsers.some(u => u.username === user)
-        ) : []
+      const recentChatPartners = search.length === 0 ? Object.keys(this.userConversations || {}).filter(user => 
+        user !== this.myUsername && !onlineUsers.includes(user) && !offlineUsers.includes(user)
+      ) : []
       
       this.userListElement.innerHTML = ""
-      this.userCountElement.textContent = filteredUsers.length + recentChatPartners.length
+      this.userCountElement.textContent = onlineUsers.length + offlineUsers.length + recentChatPartners.length
 
       // Display online users first
-      const onlineUsers = filteredUsers.filter(user => user.online)
       if (onlineUsers.length > 0) {
         const onlineHeader = document.createElement("div")
         onlineHeader.className = "section-header"
@@ -277,48 +123,47 @@ class DakChat {
         
         onlineUsers.forEach((user) => {
           const userElement = document.createElement("div")
-          userElement.className = `user ${user.username === this.currentChat ? "active" : ""}`
+          userElement.className = `user ${user === this.currentChat ? "active" : ""}`
           userElement.innerHTML = `
             <div class="user-item-avatar">
-              ${user.username.charAt(0).toUpperCase()}
+              ${user.charAt(0).toUpperCase()}
             </div>
             <div class="user-details">
-              <div class="user-name">${user.username}</div>
+              <div class="user-name">${user}</div>
               <div class="user-status">
                 <i class="fas fa-circle" style="color: var(--success-green); font-size: 0.6rem;"></i>
                 Online
               </div>
             </div>
           `
-          userElement.addEventListener("click", () => this.openChat(user.username))
+          userElement.addEventListener("click", () => this.openChat(user))
           this.userListElement.appendChild(userElement)
         })
       }
 
       // Display offline users (only when searching)
-      const offlineUsers = filteredUsers.filter(user => !user.online)
       if (offlineUsers.length > 0) {
         const offlineHeader = document.createElement("div")
         offlineHeader.className = "section-header"
-        offlineHeader.innerHTML = `<h4><i class="fas fa-circle" style="color: var(--text-muted); font-size: 0.8em;"></i> Offline</h4><span class="count">${offlineUsers.length}</span>`
+        offlineHeader.innerHTML = `<h4><i class="fas fa-circle" style="color: var(--text-muted); font-size: 0.8em;"></i> Offline Users</h4><span class="count">${offlineUsers.length}</span>`
         this.userListElement.appendChild(offlineHeader)
         
         offlineUsers.forEach((user) => {
           const userElement = document.createElement("div")
-          userElement.className = `user ${user.username === this.currentChat ? "active" : ""}`
+          userElement.className = `user ${user === this.currentChat ? "active" : ""}`
           userElement.innerHTML = `
             <div class="user-item-avatar">
-              ${user.username.charAt(0).toUpperCase()}
+              ${user.charAt(0).toUpperCase()}
             </div>
             <div class="user-details">
-              <div class="user-name">${user.username}</div>
+              <div class="user-name">${user}</div>
               <div class="user-status">
                 <i class="fas fa-circle" style="color: var(--text-muted); font-size: 0.6rem;"></i>
                 Offline
               </div>
             </div>
           `
-          userElement.addEventListener("click", () => this.openChat(user.username))
+          userElement.addEventListener("click", () => this.openChat(user))
           this.userListElement.appendChild(userElement)
         })
       }
@@ -354,20 +199,20 @@ class DakChat {
       }
 
       // If no users to show
-      if (filteredUsers.length === 0 && recentChatPartners.length === 0) {
+      if (onlineUsers.length === 0 && offlineUsers.length === 0 && recentChatPartners.length === 0) {
         const emptyState = document.createElement("div")
         emptyState.className = "empty-state"
         emptyState.innerHTML = `
           <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
-            <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-            <p>${search.length > 0 ? 'No operators found' : 'No operators available'}</p>
+            <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+            <p>${search.length > 0 ? 'No users found matching "' + search + '"' : 'No operators available'}</p>
           </div>
         `
         this.userListElement.appendChild(emptyState)
       }
       
     } catch (error) {
-      console.error('Error fetching online users:', error)
+      console.error('Error fetching users:', error)
       this.displayOnlineUsersOnly()
     }
   }
@@ -414,28 +259,7 @@ class DakChat {
     })
   }
 
-  openChat(username) {
-    this.currentChat = username
-    currentChat = username // Update global variable
-    this.chatUsername.textContent = username
-
-    // Update UI
-    this.chatHeader.style.display = "flex"
-    this.chatInput.style.display = "block"
-
-    // Mobile: show chat area, hide sidebar
-    if (window.innerWidth <= 768) {
-      const chatAreaContainer = $("chat-area-container")
-      if (chatAreaContainer) chatAreaContainer.classList.add("active")
-      this.sidebar.classList.remove("active")
-      this.sidebar.style.display = "none"
-    }
-
-    // Load chat history
-    this.loadChatHistory(username)
-    this.updateUserList()
-    this.messageInput.focus()
-  }
+  openChat(username) { this.currentChat = username, currentChat = username, this.chatUsername.textContent = username, this.chatHeader.style.display = "flex", this.chatInput.style.display = "block"; if (window.innerWidth <= 768) { const chatAreaContainer = $("chat-area-container"); if (chatAreaContainer) chatAreaContainer.classList.add("active"); this.sidebar.classList.remove("active"), this.sidebar.style.display = "none" } this.loadChatHistory(username), this.updateUserList(), this.messageInput.focus() }
 
   loadChatHistory(username) {
     this.chatArea.innerHTML = ""
@@ -471,18 +295,7 @@ class DakChat {
     }
   }
 
-  showWelcomeMessage(username) {
-    const welcomeDiv = document.createElement("div")
-    welcomeDiv.className = "welcome-screen"
-    welcomeDiv.innerHTML = `
-      <div class="welcome-icon">
-        <i class="fas fa-satellite-dish"></i>
-      </div>
-      <h3>Secure Channel Established</h3>
-      <p>Communication link with <strong>${username}</strong> is now active</p>
-    `
-    this.chatArea.appendChild(welcomeDiv)
-  }
+  showWelcomeMessage(username) { const welcomeDiv = document.createElement("div"); welcomeDiv.className = "welcome-screen", welcomeDiv.innerHTML = `<div class="welcome-icon"><i class="fas fa-satellite-dish"></i></div><h3>Secure Channel Established</h3><p>Communication link with <strong>${username}</strong> is now active</p>`, this.chatArea.appendChild(welcomeDiv) }
 
   handleIncomingMessage(message) {
     if (message.from === this.currentChat || message.to === this.currentChat) {
@@ -540,51 +353,10 @@ class DakChat {
     this.scrollToBottom()
   }
 
-  sendMessage() {
-    const message = this.messageInput.value.trim()
+  sendMessage() { const message = this.messageInput.value.trim(); if (!message || !this.currentChat) return; if (message.length > 500) { this.showToast("Message too long (max 500 characters)", "warning"); return } this.socket.emit("send-message", { to: this.currentChat, message: message }), this.messageInput.value = "", this.updateCharCount(), this.messageInput.focus(), setTimeout(() => this.updateUserList(), 500) }
 
-    if (!message || !this.currentChat) return
-
-    if (message.length > 500) {
-      this.showToast("Message too long (max 500 characters)", "warning")
-      return
-    }
-
-    this.socket.emit("send-message", {
-      to: this.currentChat,
-      message: message,
-    })
-
-    this.messageInput.value = ""
-    this.updateCharCount()
-    this.messageInput.focus()
-    
-    // Refresh user list to show updated recent chats
-    setTimeout(() => this.updateUserList(), 500)
-  }
-
-  updateCharCount() {
-    const count = this.messageInput.value.length
-    this.charCount.textContent = count
-
-    if (count > 450) {
-      this.charCount.style.color = "var(--error-red)"
-    } else if (count > 400) {
-      this.charCount.style.color = "var(--warning-yellow)"
-    } else {
-      this.charCount.style.color = "var(--text-muted)"
-    }
-  }
-
-  handleTyping() {
-    if (!this.isTyping) {
-      this.isTyping = true
-      // Could emit typing indicator here
-      setTimeout(() => {
-        this.isTyping = false
-      }, 1000)
-    }
-  }
+  updateCharCount() { const count = this.messageInput.value.length; this.charCount.textContent = count; this.charCount.style.color = count > 450 ? "var(--error-red)" : count > 400 ? "var(--warning-yellow)" : "var(--text-muted)" }
+  handleTyping() { if (!this.isTyping) { this.isTyping = true, setTimeout(() => { this.isTyping = false }, 1000) } }
 
   toggleEmojiPicker() {
     const picker = this.emojiPicker

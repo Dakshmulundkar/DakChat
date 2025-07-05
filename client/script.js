@@ -1,4 +1,3 @@
-// Import the io function from socket.io-client
 import { io } from "socket.io-client"
 
 class DakChat {
@@ -13,70 +12,11 @@ class DakChat {
     this.setupSocketListeners()
   }
 
-  initializeElements() {
-    // Screens
-    this.loginScreen = document.getElementById("loginScreen")
-    this.chatScreen = document.getElementById("chatScreen")
-    this.loadingOverlay = document.getElementById("loadingOverlay")
+  initializeElements() { this.loginScreen = document.getElementById("loginScreen"), this.chatScreen = document.getElementById("chatScreen"), this.loadingOverlay = document.getElementById("loadingOverlay"), this.loginForm = document.getElementById("loginForm"), this.usernameInput = document.getElementById("username"), this.passwordInput = document.getElementById("password"), this.currentUserElement = document.getElementById("currentUser"), this.userCountElement = document.getElementById("userCount"), this.userListElement = document.getElementById("userList"), this.chatTitle = document.getElementById("chatTitle"), this.chatStatus = document.getElementById("chatStatus"), this.messagesContainer = document.getElementById("messagesContainer"), this.messageInput = document.getElementById("messageInput"), this.messageText = document.getElementById("messageText"), this.sendBtn = document.getElementById("sendBtn"), this.logoutBtn = document.getElementById("logoutBtn"), this.charCount = document.getElementById("charCount"), this.toastContainer = document.getElementById("toastContainer") }
 
-    // Login elements
-    this.loginForm = document.getElementById("loginForm")
-    this.usernameInput = document.getElementById("username")
-    this.passwordInput = document.getElementById("password")
+  bindEvents() { this.loginForm.addEventListener("submit", (e) => this.handleLogin(e)), this.sendBtn.addEventListener("click", () => this.sendMessage()), this.messageText.addEventListener("keypress", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(), this.sendMessage() } }), this.messageText.addEventListener("input", () => this.updateCharCount()), this.logoutBtn.addEventListener("click", () => this.logout()), this.messageText.addEventListener("input", () => this.autoResizeInput()) }
 
-    // Chat elements
-    this.currentUserElement = document.getElementById("currentUser")
-    this.userCountElement = document.getElementById("userCount")
-    this.userListElement = document.getElementById("userList")
-    this.chatTitle = document.getElementById("chatTitle")
-    this.chatStatus = document.getElementById("chatStatus")
-    this.messagesContainer = document.getElementById("messagesContainer")
-    this.messageInput = document.getElementById("messageInput")
-    this.messageText = document.getElementById("messageText")
-    this.sendBtn = document.getElementById("sendBtn")
-    this.logoutBtn = document.getElementById("logoutBtn")
-    this.charCount = document.getElementById("charCount")
-
-    // Toast container
-    this.toastContainer = document.getElementById("toastContainer")
-  }
-
-  bindEvents() {
-    // Login form
-    this.loginForm.addEventListener("submit", (e) => this.handleLogin(e))
-
-    // Message sending
-    this.sendBtn.addEventListener("click", () => this.sendMessage())
-    this.messageText.addEventListener("keypress", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault()
-        this.sendMessage()
-      }
-    })
-
-    // Character count
-    this.messageText.addEventListener("input", () => this.updateCharCount())
-
-    // Logout
-    this.logoutBtn.addEventListener("click", () => this.logout())
-
-    // Auto-resize message input
-    this.messageText.addEventListener("input", () => this.autoResizeInput())
-  }
-
-  setupSocketListeners() {
-    this.socket.on("user-list", (users) => this.updateUserList(users))
-    this.socket.on("receive-message", (message) => this.displayMessage(message))
-
-    this.socket.on("connect", () => {
-      this.hideLoading()
-      this.showToast("Connected to server", "success")
-    })
-
-    this.socket.on("disconnect", () => {
-      this.showToast("Disconnected from server", "error")
-    })
-  }
+  setupSocketListeners() { this.socket.on("user-list", (users) => this.updateUserList(users)), this.socket.on("receive-message", (message) => this.displayMessage(message)), this.socket.on("connect", () => { this.hideLoading(), this.showToast("Connected to server", "success") }), this.socket.on("disconnect", () => { this.showToast("Disconnected from server", "error") }) }
 
   async handleLogin(e) {
     e.preventDefault()
@@ -107,14 +47,7 @@ class DakChat {
     })
   }
 
-  switchToChat() {
-    this.loginScreen.classList.remove("active")
-    this.chatScreen.classList.add("active")
-
-    // Clear login form
-    this.usernameInput.value = ""
-    this.passwordInput.value = ""
-  }
+  switchToChat() { this.loginScreen.classList.remove("active"), this.chatScreen.classList.add("active"), this.usernameInput.value = "", this.passwordInput.value = "" }
 
   updateUserList(users) {
     this.users = users.filter((user) => user !== this.currentUser)
